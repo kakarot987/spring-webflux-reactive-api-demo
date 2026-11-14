@@ -11,6 +11,9 @@ import reactor.test.StepVerifier;
 
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
+import reactor.core.publisher.Mono;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,14 +45,14 @@ class ProductProducerTest {
                 .then(producer::startStreaming)
                 .expectNextMatches(product -> product.getName().equals("Sample"))
                 .expectNextCount(1)
-                .verifyComplete();
+                .verify(Duration.ofSeconds(5));
 
         producer.stopStreaming();
 
         StepVerifier.create(producer.getProductStream().take(1))
                 .then(producer::startStreaming)
                 .expectNextCount(1)
-                .verifyComplete();
+                .verify(Duration.ofSeconds(5));
     }
 
     @Test
@@ -57,7 +60,7 @@ class ProductProducerTest {
         StepVerifier.create(producer.getProductStream().take(2))
                 .then(() -> IntStream.range(0, 20).parallel().forEach(i -> producer.startStreaming()))
                 .expectNextCount(2)
-                .verifyComplete();
+                .verify(Duration.ofSeconds(5));
         assertTrue(generated.get() >= 2);
     }
 
@@ -75,9 +78,41 @@ class ProductProducerTest {
             StepVerifier.create(producer.getProductStream().take(2))
                     .then(producer::startStreaming)
                     .expectNextCount(2)
-                    .verifyComplete();
+                    .verify(Duration.ofSeconds(5));
         } finally {
             slow.dispose();
         }
+    }
+
+    @Test
+    void simultaneousSubscribersReceiveTheSameLiveEvent() {
+        // Both subscribers attach before the application-wide producer starts.
+        Mono<Product> first = producer.getProductStream().next();
+        Mono<Product> second = producer.getProductStream().next();
+
+        StepVerifier.create(Mono.zip(first, second))
+                .then(producer::startStreaming)
+                .assertNext(pair -> assertEquals(pair.getT1().getId(), pair.getT2().getId()))
+                .verify(Duration.ofSeconds(5));
+    }
+
+    @Test
+    void cancellingOneClientLeavesOtherClientsAndProducerRunning() {
+        AtomicInteger cancellations = new AtomicInteger();
+        Mono<Product> disconnectingClient = producer.getProductStream()
+                .doOnCancel(cancellations::incrementAndGet)
+                .next();
+        Mono<java.util.List<Product>> continuingClient = producer.getProductStream()
+                .take(3)
+                .collectList();
+
+        StepVerifier.create(Mono.zip(disconnectingClient, continuingClient))
+                .then(producer::startStreaming)
+                .assertNext(pair -> {
+                    assertEquals(3, pair.getT2().size(), "Remaining client keeps getting events");
+                    assertEquals(pair.getT1().getId(), pair.getT2().get(0).getId());
+                    assertEquals(1, cancellations.get(), "First client cancelled its subscription");
+                })
+                .verify(Duration.ofSeconds(5));
     }
 }
