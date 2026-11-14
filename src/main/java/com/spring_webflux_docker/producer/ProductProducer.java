@@ -5,6 +5,7 @@ import com.spring_webflux_docker.supplier.ProductSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -23,6 +24,7 @@ public class ProductProducer {
     private final Duration interval;
     private Disposable streamSubscription;
 
+    @Autowired
     public ProductProducer(ProductSupplier productSupplier) {
         this(productSupplier, Duration.ofSeconds(2));
     }
