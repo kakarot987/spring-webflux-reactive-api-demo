@@ -23,4 +23,4 @@ The stream uses Reactor `Sinks.many().multicast().directBestEffort()`. It does n
 ./gradlew test
 ```
 
-Tests cover SSE endpoint contracts, concurrent start calls, restarting, and slow subscribers. The intentionally unrelated in-memory CRUD service and console consumer were removed so this stays a concise streaming demo.
+Tests cover SSE endpoint contracts, concurrent start calls, restarting, simultaneous subscribers receiving the same live event, client cancellation without interrupting other clients, and slow subscribers. The intentionally unrelated in-memory CRUD service and console consumer were removed so this stays a concise streaming demo.
