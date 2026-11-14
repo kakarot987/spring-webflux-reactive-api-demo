@@ -45,14 +45,14 @@ class ProductProducerTest {
                 .then(producer::startStreaming)
                 .expectNextMatches(product -> product.getName().equals("Sample"))
                 .expectNextCount(1)
-                .verify(Duration.ofSeconds(5));
+                .expectComplete().verify(Duration.ofSeconds(5));
 
         producer.stopStreaming();
 
         StepVerifier.create(producer.getProductStream().take(1))
                 .then(producer::startStreaming)
                 .expectNextCount(1)
-                .verify(Duration.ofSeconds(5));
+                .expectComplete().verify(Duration.ofSeconds(5));
     }
 
     @Test
@@ -60,7 +60,7 @@ class ProductProducerTest {
         StepVerifier.create(producer.getProductStream().take(2))
                 .then(() -> IntStream.range(0, 20).parallel().forEach(i -> producer.startStreaming()))
                 .expectNextCount(2)
-                .verify(Duration.ofSeconds(5));
+                .expectComplete().verify(Duration.ofSeconds(5));
         assertTrue(generated.get() >= 2);
     }
 
@@ -78,7 +78,7 @@ class ProductProducerTest {
             StepVerifier.create(producer.getProductStream().take(2))
                     .then(producer::startStreaming)
                     .expectNextCount(2)
-                    .verify(Duration.ofSeconds(5));
+                    .expectComplete().verify(Duration.ofSeconds(5));
         } finally {
             slow.dispose();
         }
@@ -93,7 +93,7 @@ class ProductProducerTest {
         StepVerifier.create(Mono.zip(first, second))
                 .then(producer::startStreaming)
                 .assertNext(pair -> assertEquals(pair.getT1().getId(), pair.getT2().getId()))
-                .verify(Duration.ofSeconds(5));
+                .expectComplete().verify(Duration.ofSeconds(5));
     }
 
     @Test
@@ -113,6 +113,6 @@ class ProductProducerTest {
                     assertEquals(pair.getT1().getId(), pair.getT2().get(0).getId());
                     assertEquals(1, cancellations.get(), "First client cancelled its subscription");
                 })
-                .verify(Duration.ofSeconds(5));
+                .expectComplete().verify(Duration.ofSeconds(5));
     }
 }
